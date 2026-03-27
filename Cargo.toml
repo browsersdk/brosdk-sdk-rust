@@ -5,6 +5,7 @@ edition = "2021"
 description = "Browser SDK Rust bindings"
 authors = ["Brosdk Team"]
 license = "MIT"
+repository = "https://github.com/browsersdk/brosdk-sdk-rust#"
 
 [lib]
 name = "brosdk_sdk"
