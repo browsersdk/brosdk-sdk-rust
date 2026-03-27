@@ -113,7 +113,7 @@ struct CreateEnvResponse {
     data: Option<CreateEnvData>,
 }
 
-async fn api_create_env(api_key: &str) -> Result<CreateEnvData, String> {
+async fn api_create_env(api_key: &str, kernel_version: &str) -> Result<CreateEnvData, String> {
     let client = reqwest::Client::new();
 
     let body = CreateEnvRequest {
@@ -122,7 +122,7 @@ async fn api_create_env(api_key: &str) -> Result<CreateEnvData, String> {
         env_name: format!("env-{}", chrono::Utc::now().timestamp()),
         finger: FingerConfig {
             kernel: "Chrome".to_string(),
-            kernel_version: "127".to_string(),
+            kernel_version: kernel_version.to_string(),
             system: "All Windows".to_string(),
             public_ip: "127.0.0.1".to_string(),
         },
@@ -204,14 +204,17 @@ pub async fn init_sdk(
 
 /// 创建环境 — 调用 REST API，返回新建的 envId
 #[tauri::command]
-pub async fn create_env(state: State<'_, AppState>) -> Result<String, String> {
+pub async fn create_env(
+    kernel_version: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
     if !*state.initialized.lock().unwrap() {
         return Err("SDK 未初始化".to_string());
     }
 
     let api_key = state.api_key.lock().unwrap().clone();
 
-    let data = api_create_env(&api_key).await?;
+    let data = api_create_env(&api_key, &kernel_version).await?;
     tracing::info!("Environment created: {} ({})", data.env_name, data.env_id);
     Ok(data.env_id)
 }

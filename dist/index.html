@@ -110,6 +110,31 @@
       opacity: 0.5;
     }
 
+    .field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text);
+      font-family: var(--font);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7094' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      transition: border-color 0.15s;
+    }
+
+    .field select:focus { border-color: var(--accent); }
+
+    .field select option {
+      background: var(--surface);
+      color: var(--text);
+    }
+
     .actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -285,6 +310,16 @@
         <label>环境 ID</label>
         <input id="envId" type="text" placeholder="输入环境 ID..." autocomplete="off" />
       </div>
+      <div class="field">
+        <label>内核版本</label>
+        <select id="kernelVersion">
+          <option value="127">Chrome 127</option>
+          <option value="131">Chrome 131</option>
+          <option value="134">Chrome 134</option>
+          <option value="138">Chrome 138</option>
+          <option value="141">Chrome 141</option>
+        </select>
+      </div>
     </div>
 
     <!-- Actions Card -->
@@ -389,10 +424,11 @@
     }
 
     async function createEnv() {
+      const kernelVersion = document.getElementById('kernelVersion').value;
       setLoading('btnCreate', true);
-      log('正在创建环境...', 'info');
+      log(`正在创建环境 (Chrome ${kernelVersion})...`, 'info');
       try {
-        const envId = await invoke('create_env');
+        const envId = await invoke('create_env', { kernelVersion });
         document.getElementById('envId').value = envId;
         log(`环境创建成功，ID: ${envId}`, 'ok');
       } catch (e) {
