@@ -1,6 +1,6 @@
 {
   "name": "brosdk-sdk-rust",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Rust 库，用于与 Browser SDK 原生库交互。",
   "main": "index.js",
   "scripts": {

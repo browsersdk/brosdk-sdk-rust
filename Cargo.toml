@@ -1,6 +1,6 @@
 [package]
 name = "brosdk-sdk"
-version = "0.1.1"
+version = "1.0.1"
 edition = "2021"
 description = "Browser SDK Rust bindings"
 authors = ["Brosdk Team"]
