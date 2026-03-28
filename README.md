@@ -83,7 +83,14 @@ Tauri 窗口加载 `dist/index.html`，无需前端构建步骤。
 
 ```toml
 [dependencies]
-brosdk-sdk = { path = "../brosdk-sdk-rust" }
+brosdk-sdk = "1.0.1"
+```
+
+或使用最新版本：
+
+```toml
+[dependencies]
+brosdk-sdk = "1"
 ```
 
 ### 与 Tauri 集成
