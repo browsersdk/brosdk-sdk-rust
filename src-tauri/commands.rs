@@ -311,30 +311,37 @@ pub async fn create_env(
         return Err("SDK 未初始化".to_string());
     }
 
-    // 使用 SDK 的 sdk_env_create 方法
-    let config = serde_json::json!({ "kernelVersion": kernel_version }).to_string();
+    // 使用与 HTTP 版本相同的 CreateEnvRequest 结构体构建参数
+    let request = CreateEnvRequest {
+        customer_id: "default".to_string(),
+        device_name: "brosdk-demo".to_string(),
+        env_name: format!("env-{}", chrono::Utc::now().timestamp()),
+        finger: FingerConfig {
+            kernel: "Chrome".to_string(),
+            kernel_version: kernel_version,
+            system: "All Windows".to_string(),
+            public_ip: "127.0.0.1".to_string(),
+        },
+    };
+    let config = serde_json::to_string(&request)
+        .map_err(|e| format!("序列化请求失败: {}", e))?;
+
     tracing::info!("sdk_env_create request: {}", config);
 
     let result = manager::sdk_env_create(&config)?;
 
-    // 解析返回的 JSON 获取 envId
-    #[derive(Deserialize)]
-    struct EnvCreateResult {
-        #[serde(rename = "envId", default)]
-        env_id: String,
-        #[serde(rename = "envName", default)]
-        env_name: String,
-    }
-
-    let parsed: EnvCreateResult = serde_json::from_str(&result)
+    // 使用与 HTTP 版本相同的响应结构进行解析
+    let resp: CreateEnvResponse = serde_json::from_str(&result)
         .map_err(|e| format!("解析创建结果失败: {}", e))?;
 
-    if parsed.env_id.is_empty() {
-        return Err(format!("创建环境失败: {}", result));
+    if resp.code != 200 {
+        return Err(format!("创建环境失败: {} (code={})", resp.msg, resp.code));
     }
 
-    tracing::info!("Environment created via SDK: {} ({})", parsed.env_name, parsed.env_id);
-    Ok(parsed.env_id)
+    let data = resp.data.ok_or_else(|| "响应中缺少 data 字段".to_string())?;
+
+    tracing::info!("Environment created via SDK: {} ({})", data.env_name, data.env_id);
+    Ok(data.env_id)
 }
 
 /// 创建环境 — 调用 REST API（HTTP 版本），返回新建的 envId
