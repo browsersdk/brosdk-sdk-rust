@@ -97,6 +97,9 @@ struct CreateEnvRequest {
     #[serde(rename = "envName")]
     env_name: String,
     finger: FingerConfig,
+    /// 代理配置，格式如：http://127.0.0.1:8080 或 socks5://user:pwd@ipaddr:6666
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proxy: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -114,8 +117,10 @@ struct CreateEnvResponse {
     data: Option<CreateEnvData>,
 }
 
-async fn api_create_env(api_key: &str, kernel_version: &str) -> Result<CreateEnvData, String> {
+async fn api_create_env(api_key: &str, kernel_version: &str, proxy: Option<&str>) -> Result<CreateEnvData, String> {
     let client = reqwest::Client::new();
+
+    let proxy_str = proxy.filter(|s| !s.is_empty()).map(|s| s.to_string());
 
     let body = CreateEnvRequest {
         customer_id: "default".to_string(),
@@ -127,6 +132,7 @@ async fn api_create_env(api_key: &str, kernel_version: &str) -> Result<CreateEnv
             system: "All Windows".to_string(),
             public_ip: "127.0.0.1".to_string(),
         },
+        proxy: proxy_str,
     };
 
     tracing::info!("create env request: {}", serde_json::to_string(&body).unwrap_or_default());
@@ -305,6 +311,7 @@ pub async fn init_sdk(
 #[tauri::command]
 pub async fn create_env(
     kernel_version: String,
+    proxy: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     if !*state.initialized.lock().unwrap() {
@@ -322,6 +329,7 @@ pub async fn create_env(
             system: "All Windows".to_string(),
             public_ip: "127.0.0.1".to_string(),
         },
+        proxy: proxy,
     };
     let config = serde_json::to_string(&request)
         .map_err(|e| format!("序列化请求失败: {}", e))?;
@@ -348,6 +356,7 @@ pub async fn create_env(
 #[tauri::command]
 pub async fn create_env_http(
     kernel_version: String,
+    proxy: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     if !*state.initialized.lock().unwrap() {
@@ -356,7 +365,7 @@ pub async fn create_env_http(
 
     let api_key = state.api_key.lock().unwrap().clone();
 
-    let data = api_create_env(&api_key, &kernel_version).await?;
+    let data = api_create_env(&api_key, &kernel_version, proxy.as_deref()).await?;
     tracing::info!("Environment created via HTTP: {} ({})", data.env_name, data.env_id);
     Ok(data.env_id)
 }

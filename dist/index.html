@@ -582,17 +582,26 @@
       <div class="field">
         <div class="field-header">
           <label>环境 ID</label>
-          <button type="button" class="btn-fetch-envs" id="btnFetchEnvs" onclick="showEnvPicker()" title="选择环境">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-            </svg>
-            环境列表
-          </button>
+          <div class="header-actions">
+            <button type="button" class="btn-fetch-envs" id="btnCreate" onclick="createEnv()" disabled title="创建新环境">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              创建环境
+            </button>
+            <button type="button" class="btn-fetch-envs" id="btnFetchEnvs" onclick="showEnvPicker()" title="选择环境">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+              </svg>
+              环境列表
+            </button>
+          </div>
         </div>
         <input id="envId" type="text" placeholder="输入环境 ID..." autocomplete="off" />
       </div>
+      <!-- 创建环境参数 -->
       <div class="field">
-        <label>内核版本</label>
+        <label>内核版本 <span style="color: var(--text-muted); font-weight: normal; font-size: 11px;">(创建环境参数)</span></label>
         <select id="kernelVersion">
           <option value="127">Chrome 127</option>
           <option value="131">Chrome 131</option>
@@ -600,6 +609,10 @@
           <option value="138">Chrome 138</option>
           <option value="141">Chrome 141</option>
         </select>
+      </div>
+      <div class="field">
+        <label>代理 <span style="color: var(--text-muted); font-weight: normal; font-size: 11px;">(创建环境参数，如 http://127.0.0.1:8080)</span></label>
+        <input id="proxy" type="text" placeholder="可选，如 http://127.0.0.1:8080" autocomplete="off" />
       </div>
     </div>
 
@@ -615,9 +628,6 @@
       <div class="actions">
         <button class="btn btn-primary" id="btnInit" onclick="initSdk()">
           <span class="icon">&#9881;</span> SDK 初始化
-        </button>
-        <button class="btn btn-secondary" id="btnCreate" onclick="createEnv()" disabled>
-          <span class="icon">&#43;</span> 创建环境
         </button>
         <button class="btn btn-secondary" id="btnStart" onclick="startEnv()" disabled>
           <span class="icon">&#9654;</span> 启动环境
@@ -683,6 +693,7 @@
       apiKey: 'brosdk_apiKey',
       envId: 'brosdk_envId',
       kernelVersion: 'brosdk_kernelVersion',
+      proxy: 'brosdk_proxy',
     };
 
     // 启动时填充上次的输入
@@ -927,15 +938,17 @@
 
     async function createEnv() {
       const kernelVersion = document.getElementById('kernelVersion').value;
+      const proxy = document.getElementById('proxy').value.trim() || null;
       setLoading('btnCreate', true);
-      log(`正在创建环境 (Chrome ${kernelVersion})...`, 'info');
+      log(`正在创建环境 (Chrome ${kernelVersion}, proxy: ${proxy || '无'})...`, 'info');
       try {
-        const envId = await invoke('create_env', { kernelVersion });
+        const envId = await invoke('create_env', { kernelVersion, proxy });
         document.getElementById('envId').value = envId;
         saveInput('envId');  // 保存到 localStorage
         log(`环境创建成功，ID: ${envId}`, 'ok');
       } catch (e) {
         log(`创建失败: ${e}`, 'err');
+        showError(e);  // 弹出错误提示
       } finally {
         setLoading('btnCreate', false);
       }
@@ -1203,6 +1216,24 @@
       }
     }
 
+    function showError(message) {
+      const overlay = document.getElementById('errorOverlay');
+      const msgEl = document.getElementById('errorMessage');
+      if (!overlay || !msgEl) {
+        alert(message);
+        return;
+      }
+      msgEl.textContent = message;
+      overlay.classList.add('show');
+    }
+
+    function closeError() {
+      const overlay = document.getElementById('errorOverlay');
+      if (overlay) {
+        overlay.classList.remove('show');
+      }
+    }
+
     // 点击遮罩关闭弹框 - 等待 DOM 加载完成后绑定
     document.addEventListener('DOMContentLoaded', function() {
       const overlay = document.getElementById('envPickerOverlay');
@@ -1210,6 +1241,15 @@
         overlay.addEventListener('click', function(e) {
           if (e.target === this) {
             closeEnvPicker();
+          }
+        });
+      }
+      // 错误提示弹框也支持点击遮罩关闭
+      const errorOverlay = document.getElementById('errorOverlay');
+      if (errorOverlay) {
+        errorOverlay.addEventListener('click', function(e) {
+          if (e.target === this) {
+            closeError();
           }
         });
       }
@@ -1229,6 +1269,22 @@
       <div class="picker-footer">
         <button type="button" class="btn btn-secondary" onclick="closeEnvPicker()">取消</button>
         <button type="button" class="btn btn-primary" id="btnConfirmEnv">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 错误提示弹框 -->
+  <div class="env-picker-overlay" id="errorOverlay">
+    <div class="picker-box" style="max-width: 400px;">
+      <div class="picker-header">
+        <h3>操作失败</h3>
+        <button type="button" class="picker-close" onclick="closeError()">&times;</button>
+      </div>
+      <div class="picker-body">
+        <p id="errorMessage" style="color: #e74c3c; word-break: break-all;"></p>
+      </div>
+      <div class="picker-footer">
+        <button type="button" class="btn btn-primary" onclick="closeError()">确定</button>
       </div>
     </div>
   </div>

@@ -171,7 +171,7 @@ pub fn browser_open(env_id: &str) -> Result<(), String> {
     let config = serde_json::json!({
         "envs": [{
             "envId": env_id,
-            "args": ["--no-first-run", "--no-default-browser-check"],
+            "args": ["--no-first-run", "--no-default-browser-check", "--remote-debugging-port=9222"],
         }]
     });
     let json = config.to_string();
@@ -187,12 +187,22 @@ pub fn browser_open(env_id: &str) -> Result<(), String> {
     info!("browser_open code={code} ok={is_ok} done={is_done} error={is_error} reqid={is_reqid}");
 
     if is_error {
+        // 获取 SDK 返回的原始结果
+        let out_data: *mut c_char = std::ptr::null_mut();
+        let out_len: usize = 0;
+        let result = unsafe { sdk.take_string(out_data, out_len) };
+        
         let err = unsafe {
             let ptr = (sdk.sdk_error_string)(code);
             if ptr.is_null() { format!("browser_open error: {code}") }
             else { CStr::from_ptr(ptr).to_string_lossy().to_string() }
         };
-        return Err(err);
+        
+        if result.is_empty() {
+            return Err(err);
+        } else {
+            return Err(format!("{} | result: {}", err, result));
+        }
     }
     Ok(())
 }
@@ -210,7 +220,22 @@ pub fn browser_close(env_id: &str) -> Result<(), String> {
     let code = unsafe { (sdk.sdk_browser_close)(data.as_ptr() as *const c_char, data.len()) };
 
     if unsafe { (sdk.sdk_is_error)(code) } {
-        return Err(format!("browser_close error: {code}"));
+        // 获取 SDK 返回的原始结果
+        let out_data: *mut c_char = std::ptr::null_mut();
+        let out_len: usize = 0;
+        let result = unsafe { sdk.take_string(out_data, out_len) };
+        
+        let err = unsafe {
+            let ptr = (sdk.sdk_error_string)(code);
+            if ptr.is_null() { format!("browser_close error: {code}") }
+            else { CStr::from_ptr(ptr).to_string_lossy().to_string() }
+        };
+        
+        if result.is_empty() {
+            return Err(err);
+        } else {
+            return Err(format!("{} | result: {}", err, result));
+        }
     }
     Ok(())
 }
@@ -221,7 +246,12 @@ pub fn token_update(token_json: &str) -> Result<(), String> {
     let data = token_json.as_bytes();
     let code = unsafe { (sdk.sdk_token_update)(data.as_ptr() as *const c_char, data.len()) };
     if unsafe { (sdk.sdk_is_error)(code) } {
-        return Err(format!("token_update error: {code}"));
+        let err = unsafe {
+            let ptr = (sdk.sdk_error_string)(code);
+            if ptr.is_null() { format!("token_update error: {code}") }
+            else { CStr::from_ptr(ptr).to_string_lossy().to_string() }
+        };
+        return Err(err);
     }
     Ok(())
 }
@@ -285,6 +315,9 @@ pub fn sdk_env_create(config_json: &str) -> Result<String, String> {
     };
 
     if unsafe { (sdk.sdk_is_error)(code) } {
+        // 获取 SDK 返回的原始结果（可能包含错误详情）
+        let result = unsafe { sdk.take_string(out_data, out_len) };
+        
         let err = unsafe {
             let ptr = (sdk.sdk_error_string)(code);
             if ptr.is_null() {
@@ -293,7 +326,12 @@ pub fn sdk_env_create(config_json: &str) -> Result<String, String> {
                 CStr::from_ptr(ptr).to_string_lossy().to_string()
             }
         };
-        return Err(err);
+        // 返回更详细的错误信息：SDK错误 + 原始返回
+        if result.is_empty() {
+            return Err(err);
+        } else {
+            return Err(format!("{} | result: {}", err, result));
+        }
     }
 
     let result = unsafe { sdk.take_string(out_data, out_len) };
