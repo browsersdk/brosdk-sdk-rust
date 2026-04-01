@@ -10,6 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "title": "Brosdk SDK Demo",
         "width": 620,
         "height": 960,
@@ -23,7 +24,7 @@
   },
   "plugins": {
     "shell": {
-      "open": "https://**"
+      "open": "^https?://.+"
     }
   }
 }

@@ -663,19 +663,21 @@
 
   <script>
     const { invoke } = window.__TAURI__.core;
-    const { open: openUrl } = window.__TAURI__.shell;
 
     let sdkReady = false;
 
-    // 打开外部链接
+    // 打开外部链接（兼容 Tauri 和普通浏览器）
     async function openExternalUrl(url) {
-      try {
-        await openUrl(url);
-      } catch (e) {
-        console.error('打开链接失败:', e);
-        // 降级方案
-        window.open(url, '_blank');
+      if (window.__TAURI__?.shell?.open) {
+        try {
+          await window.__TAURI__.shell.open(url);
+          return;
+        } catch (e) {
+          console.error('Tauri 打开链接失败:', e);
+        }
       }
+      // 浏览器降级方案
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
 
     // ── 密码显示/隐藏 ─────────────────────────────────────────────────────────────

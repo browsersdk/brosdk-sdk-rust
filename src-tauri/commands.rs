@@ -481,3 +481,187 @@ pub async fn list_envs2(
 pub fn get_sdk_info() -> Result<String, String> {
     brosdk_sdk::sdk_info()
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// SDK 下载相关
+//
+
+#[derive(Deserialize)]
+struct GitHubAsset {
+    name: String,
+    browser_download_url: String,
+}
+
+#[derive(Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    assets: Vec<GitHubAsset>,
+}
+
+/// 在目录树中递归查找指定文件名，返回第一个匹配的路径。
+fn find_file_recursive(dir: &std::path::Path, filename: &str) -> Option<std::path::PathBuf> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(found) = find_file_recursive(&path, filename) {
+                return Some(found);
+            }
+        } else if path.file_name().map(|n| n == filename).unwrap_or(false) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// 下载 SDK 库文件（从 GitHub releases）
+#[tauri::command]
+pub async fn download_sdk_lib() -> Result<String, String> {
+    let client = reqwest::Client::new();
+
+    // 调用 GitHub API 获取最新 release
+    let resp = client
+        .get("https://api.github.com/repos/browsersdk/brosdk-sdk/releases/latest")
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "brosdk-sdk-rust")
+        .send()
+        .await
+        .map_err(|e| format!("请求 GitHub API 失败: {}", e))?;
+
+    let release: GitHubRelease = resp
+        .json()
+        .await
+        .map_err(|e| format!("解析 GitHub API 响应失败: {}", e))?;
+
+    tracing::info!("Latest SDK release: {}", release.tag_name);
+
+    // 从 tag_name 提取版本号（去掉开头的 v）
+    let version = release.tag_name.trim_start_matches('v');
+
+    // 根据平台选择对应的压缩包，文件名包含版本号
+    #[cfg(target_os = "windows")]
+    let (archive_name, lib_subdir, lib_name) = (
+        format!("brosdk-{}-windows-x64.zip", version),
+        "windows-x64",
+        "brosdk.dll",
+    );
+
+    #[cfg(target_os = "macos")]
+    let (archive_name, lib_subdir, lib_name) = (
+        format!("brosdk-{}-darwin-arm64.tar.gz", version),
+        "macos-arm64",
+        "brosdk.dylib",
+    );
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    return Err("不支持的操作系统".to_string());
+
+    let asset = release
+        .assets
+        .iter()
+        .find(|a| a.name == archive_name)
+        .ok_or_else(|| format!("未找到平台对应的 SDK 文件: {}", archive_name))?;
+
+    tracing::info!("Downloading SDK from: {}", asset.browser_download_url);
+
+    // 下载压缩包
+    let resp = client
+        .get(&asset.browser_download_url)
+        .send()
+        .await
+        .map_err(|e| format!("下载 SDK 失败: {}", e))?;
+
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|e| format!("读取 SDK 文件失败: {}", e))?;
+
+    // 确保 libs 目标目录存在
+    let lib_dir = std::path::Path::new("libs").join(lib_subdir);
+    std::fs::create_dir_all(&lib_dir)
+        .map_err(|e| format!("创建目录失败: {}", e))?;
+
+    // 解压到临时目录
+    let temp_dir = std::env::temp_dir().join(format!("brosdk-sdk-{}", release.tag_name));
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(&temp_dir)
+        .map_err(|e| format!("创建临时目录失败: {}", e))?;
+
+    // ── 解压 ────────────────────────────────────────────────────────────────
+
+    #[cfg(target_os = "windows")]
+    {
+        let zip_path = temp_dir.join(&archive_name);
+        std::fs::write(&zip_path, &bytes)
+            .map_err(|e| format!("保存压缩包失败: {}", e))?;
+
+        let zip_file = std::fs::File::open(&zip_path)
+            .map_err(|e| format!("打开压缩包失败: {}", e))?;
+        let mut archive = zip::ZipArchive::new(zip_file)
+            .map_err(|e| format!("解析压缩包失败: {}", e))?;
+
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)
+                .map_err(|e| format!("读取压缩包内文件失败: {}", e))?;
+            let outpath = temp_dir.join(file.mangled_name());
+
+            if file.name().ends_with('/') {
+                std::fs::create_dir_all(&outpath)
+                    .map_err(|e| format!("创建目录失败: {}", e))?;
+            } else {
+                if let Some(p) = outpath.parent() {
+                    std::fs::create_dir_all(p)
+                        .map_err(|e| format!("创建目录失败: {}", e))?;
+                }
+                let mut outfile = std::fs::File::create(&outpath)
+                    .map_err(|e| format!("创建文件失败: {}", e))?;
+                std::io::copy(&mut file, &mut outfile)
+                    .map_err(|e| format!("写入文件失败: {}", e))?;
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use flate2::read::GzDecoder;
+        let tar = GzDecoder::new(&bytes[..]);
+        let mut archive = tar::Archive::new(tar);
+        archive.unpack(&temp_dir)
+            .map_err(|e| format!("解压 tar.gz 失败: {}", e))?;
+    }
+
+    // ── 拷贝库文件到目标目录 ─────────────────────────────────────────────────
+
+    let dst_path = lib_dir.join(lib_name);
+
+    // 先在临时目录根部查找，再递归查找子目录
+    let src_lib = {
+        let root_candidate = temp_dir.join(lib_name);
+        if root_candidate.exists() {
+            root_candidate
+        } else {
+            find_file_recursive(&temp_dir, lib_name)
+                .ok_or_else(|| format!("解压后未找到 {} 文件", lib_name))?
+        }
+    };
+
+    tracing::info!("Copying {} -> {}", src_lib.display(), dst_path.display());
+    std::fs::copy(&src_lib, &dst_path)
+        .map_err(|e| format!("复制库文件失败: {}", e))?;
+
+    // 清理临时目录
+    let _ = std::fs::remove_dir_all(&temp_dir);
+
+    let file_size = std::fs::metadata(&dst_path)
+        .map_err(|e| format!("获取文件大小失败: {}", e))?
+        .len() / 1024;
+
+    tracing::info!("SDK extracted and copied to: {}", dst_path.display());
+
+    Ok(format!(
+        "SDK {} 已下载并解压到 {} ({} KB)",
+        release.tag_name,
+        dst_path.display(),
+        file_size
+    ))
+}
