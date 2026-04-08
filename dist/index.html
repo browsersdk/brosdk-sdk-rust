@@ -29,7 +29,7 @@
       font-family: var(--font);
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       padding: 24px;
     }
@@ -37,6 +37,39 @@
     .container {
       width: 100%;
       max-width: 540px;
+    }
+
+    /* 宽屏布局：配置、操作、日志并排显示 */
+    @media (min-width: 1024px) {
+      body {
+        align-items: flex-start;
+        padding-top: 40px;
+      }
+
+      .container {
+        max-width: 1400px;
+      }
+
+      .container > .header {
+        margin-bottom: 24px;
+      }
+
+      /* 使用 grid 布局将配置、操作、日志三列并排显示 */
+      .container {
+        display: grid;
+        grid-template-columns: 340px 340px 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .container > .card,
+      .container > .main-content > .card {
+        margin-bottom: 0;
+      }
+
+      .container > .main-content > .log-card .log-area {
+        max-height: 400px;
+      }
     }
 
     .header {
@@ -642,36 +675,41 @@
       </div>
     </div>
 
-    <!-- Actions Card -->
-    <div class="card">
-      <div class="sdk-status">
-        <div class="card-title label">操作</div>
-        <span id="sdkBadge" class="badge idle">
-          <span class="badge-dot"></span>未初始化
-        </span>
+    <!-- 主内容区域：配置、操作、日志 -->
+    <div class="main-content">
+      <!-- 占位：Config Card 在上面的 div.card 中 -->
+
+      <!-- 操作 Card -->
+      <div class="card">
+        <div class="sdk-status">
+          <div class="card-title label">操作</div>
+          <span id="sdkBadge" class="badge idle">
+            <span class="badge-dot"></span>未初始化
+          </span>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="btnInit" onclick="initSdk()">
+            <span class="icon">&#9881;</span> SDK 初始化
+          </button>
+          <button class="btn btn-secondary" id="btnStart" onclick="startEnv()" disabled>
+            <span class="icon">&#9654;</span> 启动环境
+          </button>
+          <button class="btn btn-danger" id="btnStop" onclick="stopEnv()" disabled>
+            <span class="icon">&#9632;</span> 关闭环境
+          </button>
+        </div>
       </div>
 
-      <div class="actions">
-        <button class="btn btn-primary" id="btnInit" onclick="initSdk()">
-          <span class="icon">&#9881;</span> SDK 初始化
-        </button>
-        <button class="btn btn-secondary" id="btnStart" onclick="startEnv()" disabled>
-          <span class="icon">&#9654;</span> 启动环境
-        </button>
-        <button class="btn btn-danger" id="btnStop" onclick="stopEnv()" disabled>
-          <span class="icon">&#9632;</span> 关闭环境
-        </button>
-      </div>
-    </div>
-
-    <!-- Log Card -->
-    <div class="status-bar">
-      <div class="label">日志输出</div>
-      <div class="log-area" id="logArea">
-        <div class="log-entry info">
-          <span class="dot"></span>
-          <span class="time" id="initTime"></span>
-          <span class="msg">等待操作...</span>
+      <!-- 日志 Card -->
+      <div class="status-bar log-card">
+        <div class="label">日志输出</div>
+        <div class="log-area" id="logArea">
+          <div class="log-entry info">
+            <span class="dot"></span>
+            <span class="time" id="initTime"></span>
+            <span class="msg">等待操作...</span>
+          </div>
         </div>
       </div>
     </div>
