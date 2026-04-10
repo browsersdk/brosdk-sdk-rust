@@ -22,6 +22,26 @@
       "csp": null
     }
   },
+  "bundle": {
+    "targets": "all",
+    "category": "DeveloperTools",
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png",
+      "icons/icon.icns"
+    ],
+    "resources": {
+      "libs/macos-arm64/*": "Frameworks/"
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "frameworks": [],
+      "exceptionDomain": null,
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": null
+    }
+  },
   "plugins": {
     "shell": {
       "open": "^https?://.+"

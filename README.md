@@ -49,6 +49,18 @@ libs/
 └── macos-arm64/brosdk.dylib
 ```
 
+### macOS 打包注意事项
+
+1. **动态库打包**：Tauri 配置了 `bundle.resources`，打包时会将 `libs/**/*` 复制到 `.app/Contents/Frameworks/` 目录
+
+2. **Bundle 内的库路径**：代码中使用 `app.path().resource_dir()` 获取资源目录，拼接为完整路径：
+   - macOS：`{resource_dir}/Frameworks/brosdk.dylib`
+   - Windows：`{resource_dir}/Frameworks/brosdk.dll`
+
+3. **开发模式 vs 生产模式**：
+   - 开发 `cargo run`：使用项目根目录的相对路径 `libs/macos-arm64/brosdk.dylib`
+   - 打包后：使用 `app.path().resource_dir()` 指向的 bundle 资源目录
+
 ## 运行 Demo
 
 ```bash
@@ -178,13 +190,90 @@ pub struct SdkEvent {
 
 ## 构建
 
-```bash
-# Debug
-cargo build
+### 项目结构说明
 
-# Release
-cargo build --release
+本项目是 **Rust 库 + Tauri 桌面应用** 的组合，`tauri.conf.json` 位于根目录（而非标准 `src-tauri/` 下）。
+
 ```
+brosdk-sdk-rust/
+├── Cargo.toml            ← lib + binary 定义
+├── tauri.conf.json       ← Tauri 配置（根目录）
+├── build.rs              ← Tauri 构建脚本
+├── src/lib.rs            ← brosdk 库（FFI 绑定）
+├── src-tauri/main.rs     ← Tauri 应用入口
+└── dist/index.html       ← 纯静态前端（无需构建）
+```
+
+### 通用构建
+
+```bash
+# Debug 构建
+cargo build --bin brosdk-demo
+
+# Release 构建
+cargo build --release --bin brosdk-demo
+
+# 仅编译 Rust 库（不含 Tauri UI）
+cargo build --release --lib --no-default-features
+```
+
+产物：`target/release/brosdk-demo.exe`（Windows）或 `target/release/brosdk-demo`（macOS）
+
+### macOS 打包
+
+> ⚠️ **macOS 打包必须在 macOS 主机上执行**，无法在 Windows/Linux 交叉编译。
+
+#### 前置要求
+
+```bash
+# 安装 Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 添加 macOS 编译目标
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+# 安装 Xcode Command Line Tools
+xcode-select --install
+
+# 安装 Tauri CLI
+npm install -g @tauri-apps/cli
+```
+
+#### 打包命令
+
+```bash
+# 打包 macOS 应用（.app + .dmg）
+cargo tauri build --target aarch64-apple-darwin
+# 或 x86_64
+cargo tauri build --target x86_64-apple-darwin
+```
+
+#### 编译产物
+
+| 产物 | 路径 |
+|------|------|
+| .app 应用 | `src-tauri/target/*-apple-darwin/release/bundle/macos/Brosdk Demo.app` |
+| .dmg 安装包 | `src-tauri/target/*-apple-darwin/release/bundle/macos/Brosdk Demo.dmg` |
+
+#### Bundle ID 说明
+
+- **配置位置**：`tauri.conf.json` → `identifier: "com.brosdk.demo"`
+- **生效位置**：`Info.plist` → `CFBundleIdentifier`
+
+验证命令：
+
+```bash
+# 编译后读取 Info.plist
+/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" \
+  "src-tauri/target/*-apple-darwin/release/bundle/macos/Brosdk Demo.app/Contents/Info.plist"
+
+# 或安装后查询
+mdls -name kMDItemCFBundleIdentifier "/Applications/Brosdk Demo.app"
+```
+
+#### macOS 启动参数
+
+启动浏览器环境时，macOS 下会自动追加 `--parent-bundle-identifier=com.brosdk.demo` 参数，让浏览器进程继承宿主 App 的权限（沙盒、Keychain 等）。
 
 ## 协议
 

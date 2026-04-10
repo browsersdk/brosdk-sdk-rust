@@ -3,7 +3,7 @@
 use brosdk::brosdk::manager;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 const GET_USER_SIG_URL: &str = "https://api.brosdk.com/api/v2/browser/getUserSig";
 const CREATE_ENV_URL: &str = "https://api.brosdk.com/api/v2/browser/create";
@@ -284,13 +284,47 @@ pub async fn init_sdk(
     let user_sig = fetch_user_sig(&api_key).await?;
     tracing::info!("userSig obtained successfully");
 
-    #[cfg(target_os = "windows")]
-    let lib_path = "libs/windows-x64/brosdk.dll";
+    // 获取动态库路径：
+    //   - 开发模式（cargo tauri dev）：直接使用项目根的 libs/ 相对路径
+    //   - 发布模式（cargo tauri build）：从 app bundle 的 Resources/Frameworks/ 读取
+    let lib_path = if tauri::is_dev() {
+        // 开发模式：相对于工作目录（项目根）
+        #[cfg(target_os = "windows")]
+        let path = "libs/windows-x64/brosdk.dll".to_string();
 
-    #[cfg(target_os = "macos")]
-    let lib_path = "libs/macos-arm64/brosdk.dylib";
+        #[cfg(target_os = "macos")]
+        let path = "libs/macos-arm64/brosdk.dylib".to_string();
 
-    match manager::load(app.clone(), lib_path) {
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        let path = "libs/linux-x64/brosdk.so".to_string();
+
+        path
+    } else {
+        // 发布模式：从 resource_dir()/Frameworks/ 读取
+        // macOS: <App>.app/Contents/Resources/Frameworks/brosdk.dylib
+        // Windows: <install_dir>/resources/Frameworks/brosdk.dll
+        match app.path().resource_dir() {
+            Ok(resource_dir) => {
+                #[cfg(target_os = "windows")]
+                let path = resource_dir.join("Frameworks").join("brosdk.dll");
+
+                #[cfg(target_os = "macos")]
+                let path = resource_dir.join("Frameworks").join("brosdk.dylib");
+
+                #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+                let path = resource_dir.join("Frameworks").join("brosdk.so");
+
+                path.to_string_lossy().to_string()
+            }
+            Err(e) => {
+                return Err(format!("无法获取资源目录: {}", e));
+            }
+        }
+    };
+
+    tracing::info!("Loading SDK library from: {}", lib_path);
+
+    match manager::load(app.clone(), &lib_path) {
         Ok(_) => {
             let work_dir = std::env::temp_dir()
                 .join(".brosdk")
