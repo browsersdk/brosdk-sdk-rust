@@ -47,15 +47,20 @@
       }
 
       .container {
-        max-width: 1400px;
+        max-width: 100%;
         display: grid;
-        grid-template-columns: 340px 340px 1fr;
+        grid-template-columns: 340px 340px minmax(300px, 1fr);
         gap: 16px;
         align-items: start;
       }
 
       .container > .card {
         margin-bottom: 0;
+        width: 100%;
+      }
+
+      .container > .status-bar {
+        width: 100%;
       }
 
       .container > .log-card .log-area {
@@ -363,6 +368,8 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 16px 20px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .status-bar .label {
@@ -390,6 +397,8 @@
       font-size: 12.5px;
       line-height: 1.5;
       animation: fadeIn 0.2s ease;
+      flex-wrap: wrap;
+      word-break: break-all;
     }
 
     @keyframes fadeIn {
@@ -642,6 +651,10 @@
       <div class="field">
         <label>代理桥 <span style="color: var(--text-muted); font-weight: normal; font-size: 11px;">(创建环境参数)</span></label>
         <input id="bridgeProxy" type="text" placeholder="可选" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>扩展路径 (Load Extension) <span style="color: var(--text-muted); font-weight: normal; font-size: 11px;">(启动参数，如 D:\extensions\myext)</span></label>
+        <input id="loadExtension" type="text" placeholder="可选，如 D:\extensions\myext" autocomplete="off" />
       </div>
       <div class="field">
         <label>链式代理 (Forward) <span style="color: var(--text-muted); font-weight: normal; font-size: 11px;">(启动参数，如 socks5://user:pwd@host:port)</span></label>
@@ -1083,6 +1096,9 @@
         }
       }
 
+      // 获取扩展路径参数
+      const loadExtension = document.getElementById('loadExtension').value.trim() || null;
+
       // 获取链式代理参数
       const forward = document.getElementById('forward').value.trim() || null;
 
@@ -1090,10 +1106,11 @@
       let logMsg = `正在启动环境: ${envId}`;
       if (cookies) logMsg += ` (${cookies.length} cookies)`;
       if (extensions) logMsg += ` (${extensions.length} extensions)`;
+      if (loadExtension) logMsg += ` (load-extension: ${loadExtension})`;
       if (forward) logMsg += ` (forward: ${forward})`;
       log(logMsg, 'info');
       try {
-        const result = await invoke('start_env', { envId, cookies, extensions, forward });
+        const result = await invoke('start_env', { envId, cookies, extensions, loadExtension, forward });
         log(result, 'ok');
       } catch (e) {
         log(`启动失败: ${e}`, 'err');

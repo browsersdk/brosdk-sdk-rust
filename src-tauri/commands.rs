@@ -455,6 +455,7 @@ pub async fn start_env(
     env_id: String,
     cookies: Option<Vec<Cookie>>,
     extensions: Option<Vec<Extension>>,
+    load_extension: Option<String>,
     forward: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
@@ -473,6 +474,13 @@ pub async fn start_env(
     // macOS 下追加 parent-bundle-identifier 参数
     #[cfg(target_os = "macos")]
     args.push("--parent-bundle-identifier=com.brosdk.demo".to_string());
+
+    // 如果提供了扩展路径，则追加到参数中
+    if let Some(ref ext) = load_extension {
+        if !ext.is_empty() {
+            args.push(format!("--load-extension={}", ext));
+        }
+    }
 
     // 如果提供了链式代理，则追加到参数中
     if let Some(ref f) = forward {
