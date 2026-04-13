@@ -13,7 +13,7 @@
         "label": "main",
         "title": "Brosdk SDK Demo",
         "width": 1080,
-        "height": 980,
+        "height": 1024,
         "resizable": true,
         "fullscreen": false
       }
