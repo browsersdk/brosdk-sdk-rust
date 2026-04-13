@@ -31,7 +31,7 @@
       "icons/icon.icns"
     ],
     "resources": {
-      "libs/macos-arm64/*": "Frameworks/"
+      "[macOS]libs/macos-arm64/*": "Frameworks/"
     },
     "macOS": {
       "minimumSystemVersion": "10.15",
