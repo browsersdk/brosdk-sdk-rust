@@ -443,6 +443,7 @@ pub struct Cookie {
 pub async fn start_env(
     env_id: String,
     cookies: Option<Vec<Cookie>>,
+    forward: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     if !*state.initialized.lock().unwrap() {
@@ -451,15 +452,22 @@ pub async fn start_env(
 
     // 构建启动参数
     #[allow(unused_mut)]
-    let mut args = vec![
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--remote-debugging-port=9222",
+    let mut args: Vec<String> = vec![
+        "--no-first-run".to_string(),
+        "--no-default-browser-check".to_string(),
+        "--remote-debugging-port=9222".to_string(),
     ];
 
     // macOS 下追加 parent-bundle-identifier 参数
     #[cfg(target_os = "macos")]
-    args.push("--parent-bundle-identifier=com.brosdk.demo");
+    args.push("--parent-bundle-identifier=com.brosdk.demo".to_string());
+
+    // 如果提供了链式代理，则追加到参数中
+    if let Some(ref f) = forward {
+        if !f.is_empty() {
+            args.push(format!("--forward={}", f));
+        }
+    }
 
     // 构建 envs 配置
     let mut env_config = serde_json::json!({
