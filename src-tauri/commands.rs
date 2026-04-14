@@ -193,6 +193,12 @@ struct FingerEnvItem {
     env_name: String,
     #[serde(rename = "finger", default)]
     finger: FingerData,
+    /// 代理，格式如 http://127.0.0.1:8080
+    #[serde(default)]
+    proxy: Option<String>,
+    /// 代理桥
+    #[serde(rename = "bridgeProxy", default)]
+    bridge_proxy: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -536,13 +542,13 @@ pub async fn stop_env(env_id: String, state: State<'_, AppState>) -> Result<Stri
 }
 
 /// 获取环境列表 — 调用 sdk_env_page SDK 接口，返回环境列表供下拉选择
-/// 返回 (envId, envName, kernelVersion) 三元组
+/// 返回 (envId, envName, kernelVersion, proxy, bridgeProxy) 五元组
 #[tauri::command]
 pub async fn list_envs(
     page: Option<u32>,
     page_size: Option<u32>,
     state: State<'_, AppState>,
-) -> Result<Vec<(String, String, String)>, String> {
+) -> Result<Vec<(String, String, String, String, String)>, String> {
     if !*state.initialized.lock().unwrap() {
         return Err("SDK 未初始化".to_string());
     }
@@ -552,26 +558,28 @@ pub async fn list_envs(
 
     tracing::info!("Fetched {} environments (total: {})", data.list.as_ref().map_or(0, |l| l.len()), data.total);
 
-    // 转换为 (envId, envName, kernelVersion) 三元组列表
+    // 转换为 (envId, envName, kernelVersion, proxy, bridgeProxy) 五元组列表
     Ok(data
         .list.unwrap_or_default()
         .into_iter()
         .map(|e| {
             let kernel = e.finger.kernel_version.unwrap_or_default();
-            (e.env_id, e.env_name, kernel)
+            let proxy = e.proxy.unwrap_or_default();
+            let bridge_proxy = e.bridge_proxy.unwrap_or_default();
+            (e.env_id, e.env_name, kernel, proxy, bridge_proxy)
         })
         .collect())
 }
 
 /// 获取环境列表 — 调用 REST API（HTTP 版本），返回环境列表供下拉选择
-/// 返回 (envId, envName, kernelVersion) 三元组
+/// 返回 (envId, envName, kernelVersion, proxy, bridgeProxy) 五元组
 /// 注意：此版本只需要 API Key，不需要 SDK 初始化
 #[tauri::command]
 pub async fn list_envs2(
     api_key: String,
     page: Option<u32>,
     page_size: Option<u32>,
-) -> Result<Vec<(String, String, String)>, String> {
+) -> Result<Vec<(String, String, String, String, String)>, String> {
     if api_key.is_empty() {
         return Err("API Key 未配置，请先填写 API Key".to_string());
     }
@@ -580,13 +588,15 @@ pub async fn list_envs2(
 
     tracing::info!("Fetched {} environments via HTTP (total: {})", data.list.as_ref().map_or(0, |l| l.len()), data.total);
 
-    // 转换为 (envId, envName, kernelVersion) 三元组列表
+    // 转换为 (envId, envName, kernelVersion, proxy, bridgeProxy) 五元组列表
     Ok(data
         .list.unwrap_or_default()
         .into_iter()
         .map(|e| {
             let kernel = e.finger.kernel_version.unwrap_or_default();
-            (e.env_id, e.env_name, kernel)
+            let proxy = e.proxy.unwrap_or_default();
+            let bridge_proxy = e.bridge_proxy.unwrap_or_default();
+            (e.env_id, e.env_name, kernel, proxy, bridge_proxy)
         })
         .collect())
 }

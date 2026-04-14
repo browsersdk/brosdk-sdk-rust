@@ -648,6 +648,8 @@
           <option value="142">Chrome 142</option>
           <option value="143">Chrome 143</option>
           <option value="144">Chrome 144</option>
+          <option value="145">Chrome 145</option>
+          <option value="146">Chrome 146</option>
         </select>
       </div>
       <div class="field">
@@ -934,10 +936,9 @@
 
         // 清空并填充下拉选项
         datalist.innerHTML = '';
-        envs.forEach(([envId, envName, kernelVersion]) => {
+        envs.forEach(([envId, envName, kernelVersion, proxy, bridgeProxy]) => {
           const option = document.createElement('option');
           option.value = envId;
-          // 显示：envId + envName + kernelVersion
           let label = envId;
           if (envName) label += ` (${envName})`;
           if (kernelVersion) label += ` - ${kernelVersion}`;
@@ -945,6 +946,8 @@
           option.dataset.envId = envId;
           option.dataset.envName = envName || '';
           option.dataset.kernelVersion = kernelVersion || '';
+          option.dataset.proxy = proxy || '';
+          option.dataset.bridgeProxy = bridgeProxy || '';
           datalist.appendChild(option);
         });
 
@@ -954,11 +957,9 @@
         if (envs.length > 0) {
           const firstOption = datalist.firstElementChild;
           envInput.value = firstOption.dataset.envId;
-          // 如果有 kernelVersion，自动设置对应的内核版本
           if (firstOption.dataset.kernelVersion) {
             const kernelSelect = document.getElementById('kernelVersion');
             const kv = firstOption.dataset.kernelVersion;
-            // 尝试匹配，如 "Chrome 127" -> "127"
             const match = kv.match(/(\d+)/);
             if (match) {
               const ver = match[1];
@@ -971,6 +972,10 @@
               }
             }
           }
+          document.getElementById('proxy').value = firstOption.dataset.proxy || '';
+          saveInput('proxy');
+          document.getElementById('bridgeProxy').value = firstOption.dataset.bridgeProxy || '';
+          saveInput('bridgeProxy');
           saveInput('envId');
         }
       } catch (e) {
@@ -995,10 +1000,9 @@
 
         // 清空并填充下拉选项
         datalist.innerHTML = '';
-        envs.forEach(([envId, envName, kernelVersion]) => {
+        envs.forEach(([envId, envName, kernelVersion, proxy, bridgeProxy]) => {
           const option = document.createElement('option');
           option.value = envId;
-          // 显示：envId + envName + kernelVersion
           let label = envId;
           if (envName) label += ` (${envName})`;
           if (kernelVersion) label += ` - ${kernelVersion}`;
@@ -1006,6 +1010,8 @@
           option.dataset.envId = envId;
           option.dataset.envName = envName || '';
           option.dataset.kernelVersion = kernelVersion || '';
+          option.dataset.proxy = proxy || '';
+          option.dataset.bridgeProxy = bridgeProxy || '';
           datalist.appendChild(option);
         });
 
@@ -1015,11 +1021,9 @@
         if (envs.length > 0) {
           const firstOption = datalist.firstElementChild;
           envInput.value = firstOption.dataset.envId;
-          // 如果有 kernelVersion，自动设置对应的内核版本
           if (firstOption.dataset.kernelVersion) {
             const kernelSelect = document.getElementById('kernelVersion');
             const kv = firstOption.dataset.kernelVersion;
-            // 尝试匹配，如 "Chrome 127" -> "127"
             const match = kv.match(/(\d+)/);
             if (match) {
               const ver = match[1];
@@ -1032,6 +1036,10 @@
               }
             }
           }
+          document.getElementById('proxy').value = firstOption.dataset.proxy || '';
+          saveInput('proxy');
+          document.getElementById('bridgeProxy').value = firstOption.dataset.bridgeProxy || '';
+          saveInput('bridgeProxy');
           saveInput('envId');
         }
       } catch (e) {
@@ -1316,14 +1324,21 @@
       const currentEnvId = document.getElementById('envId').value;
 
       body.innerHTML = '';
-      envs.forEach(([envId, envName, kernelVersion]) => {
+      envs.forEach(([envId, envName, kernelVersion, proxy, bridgeProxy]) => {
         const item = document.createElement('div');
         item.className = 'env-item' + (envId === currentEnvId ? ' selected' : '');
         item.dataset.envId = envId;
         item.dataset.kernelVersion = kernelVersion || '';
+        item.dataset.proxy = proxy || '';
+        item.dataset.bridgeProxy = bridgeProxy || '';
+
+        let infoText = envName || '(无名称)';
+        if (kernelVersion) infoText += ' | ' + kernelVersion;
+        if (proxy) infoText += ' | ' + proxy;
+
         item.innerHTML = `
           <div class="env-item-id">${envId}</div>
-          <div class="env-item-info">${envName || '(无名称)'} ${kernelVersion ? ' | ' + kernelVersion : ''}</div>
+          <div class="env-item-info">${infoText}</div>
         `;
         item.onclick = () => selectEnvItem(item);
         body.appendChild(item);
@@ -1341,10 +1356,14 @@
       if (selected) {
         const envId = selected.dataset.envId;
         const kernelVersion = selected.dataset.kernelVersion;
+        const proxy = selected.dataset.proxy;
+        const bridgeProxy = selected.dataset.bridgeProxy;
+
+        // 回填环境 ID
         document.getElementById('envId').value = envId;
         saveInput('envId');
 
-        // 自动设置内核版本
+        // 回填内核版本
         if (kernelVersion) {
           const kernelSelect = document.getElementById('kernelVersion');
           const match = kernelVersion.match(/(\d+)/);
@@ -1358,6 +1377,20 @@
               }
             }
           }
+        }
+
+        // 回填代理
+        const proxyEl = document.getElementById('proxy');
+        if (proxyEl) {
+          proxyEl.value = proxy || '';
+          saveInput('proxy');
+        }
+
+        // 回填代理桥
+        const bridgeProxyEl = document.getElementById('bridgeProxy');
+        if (bridgeProxyEl) {
+          bridgeProxyEl.value = bridgeProxy || '';
+          saveInput('bridgeProxy');
         }
       }
       closeEnvPicker();
