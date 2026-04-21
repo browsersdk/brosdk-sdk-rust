@@ -609,6 +609,28 @@ pub fn get_sdk_info() -> Result<String, String> {
     brosdk::sdk_info()
 }
 
+/// 刷新 UserSig：用 API Key 重新获取 userSig，再调用 token_update 更新 SDK 凭证
+#[tauri::command]
+pub async fn refresh_user_sig(state: State<'_, AppState>) -> Result<String, String> {
+    if !*state.initialized.lock().unwrap() {
+        return Err("SDK 未初始化".to_string());
+    }
+
+    let api_key = state.api_key.lock().unwrap().clone();
+    if api_key.is_empty() {
+        return Err("API Key 为空，请先完成 SDK 初始化".to_string());
+    }
+
+    let user_sig = fetch_user_sig(&api_key).await?;
+    tracing::info!("New userSig obtained: {}", user_sig);
+
+    let token_json = serde_json::json!({ "userSig": user_sig }).to_string();
+    manager::token_update(&token_json)?;
+    tracing::info!("Token updated via sdk_token_update");
+
+    Ok("UserSig 刷新成功".to_string())
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // SDK 下载相关
 //

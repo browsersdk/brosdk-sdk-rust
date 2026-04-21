@@ -675,6 +675,9 @@
         <button class="btn btn-primary" id="btnInit" onclick="initSdk()">
           <span class="icon">&#9881;</span> SDK 初始化
         </button>
+        <button class="btn btn-secondary" id="btnRefreshSig" onclick="refreshUserSig()" disabled>
+          <span class="icon">&#8635;</span> 刷新 UserSig
+        </button>
         <button class="btn btn-secondary" id="btnStart" onclick="startEnv()" disabled>
           <span class="icon">&#9654;</span> 启动环境
         </button>
@@ -879,14 +882,14 @@
         badge.innerHTML = '<span class="badge-dot"></span>已就绪';
         // SDK 初始化按钮保持禁用
         if (btnInit) btnInit.disabled = true;
-        ['btnCreate', 'btnStart', 'btnStop', 'btnFetchEnvs'].forEach(id => {
+        ['btnCreate', 'btnStart', 'btnStop', 'btnFetchEnvs', 'btnRefreshSig'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.disabled = false;
         });
       } else {
         badge.className = 'badge idle';
         badge.innerHTML = '<span class="badge-dot"></span>未初始化';
-        ['btnCreate', 'btnStart', 'btnStop', 'btnFetchEnvs'].forEach(id => {
+        ['btnCreate', 'btnStart', 'btnStop', 'btnFetchEnvs', 'btnRefreshSig'].forEach(id => {
           document.getElementById(id).disabled = true;
         });
       }
@@ -1138,6 +1141,19 @@
       }
     }
 
+    async function refreshUserSig() {
+      setLoading('btnRefreshSig', true);
+      log('正在刷新 UserSig...', 'info');
+      try {
+        const result = await invoke('refresh_user_sig');
+        log(result, 'ok');
+      } catch (e) {
+        log(`刷新失败: ${e}`, 'err');
+      } finally {
+        setLoading('btnRefreshSig', false);
+      }
+    }
+
     async function stopEnv() {
       const envId = document.getElementById('envId').value.trim();
       if (!envId) {
@@ -1196,7 +1212,7 @@
     fetchSdkInfo();
     
     // 默认禁用需要 SDK 初始化的按钮
-    ['btnCreate', 'btnStart', 'btnStop', 'btnFetchEnvs'].forEach(id => {
+    ['btnCreate', 'btnStart', 'btnStop', 'btnFetchEnvs', 'btnRefreshSig'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.disabled = true;
     });

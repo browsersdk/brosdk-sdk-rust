@@ -16,6 +16,7 @@ fn main() {
         .manage(commands::AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::init_sdk,
+            commands::refresh_user_sig,
             commands::create_env,
             commands::create_env_http,
             commands::start_env,
